@@ -29,6 +29,7 @@ var (
 
 	screen *Display
 	fps    sdlgfx.FPSManager
+	ctls   []*sdl.GameController
 
 	bg    Background
 	intro Background
@@ -133,8 +134,27 @@ func initSDL() {
 
 	sdl.ShowCursor(0)
 
+	mapControllers()
+
 	fps.Init()
 	fps.SetRate(60)
+}
+
+func mapControllers() {
+	for _, c := range ctls {
+		if c != nil {
+			c.Close()
+		}
+	}
+
+	ctls = make([]*sdl.GameController, sdl.NumJoysticks())
+	for i, _ := range ctls {
+		if sdl.IsGameController(i) {
+			var err error
+			ctls[i], err = sdl.GameControllerOpen(i)
+			ek(err)
+		}
+	}
 }
 
 func loadAssets() {
@@ -280,18 +300,35 @@ func outGame() {
 		switch ev := ev.(type) {
 		case sdl.QuitEvent:
 			os.Exit(0)
+		case sdl.ControllerButtonDownEvent:
+			setInGame()
 		case sdl.KeyDownEvent:
 			switch ev.Sym {
 			case sdl.K_ESCAPE:
 				os.Exit(0)
 			case sdl.K_SPACE:
-				if won {
-					reset()
-					intro = Background{0, 0, loadTexture("Intro.png")}
-				}
-				state = inGame
+				setInGame()
 			}
 		}
+	}
+}
+
+func setInGame() {
+	if won {
+		reset()
+		intro = Background{0, 0, loadTexture("Intro.png")}
+	}
+	state = inGame
+}
+
+func jump() {
+	playFlap()
+	player.dy = -2.5
+	n := rand.Intn(2) + 2
+	for i := 0; i < n; i++ {
+		x := player.x + float64(rand.Intn(11)-5)
+		y := player.y + float64(rand.Intn(8))
+		feathers = append(feathers, newDroppedFeather(x, y))
 	}
 }
 
@@ -317,14 +354,7 @@ func inGame() {
 			case sdl.K_p:
 				state = outGame
 			case sdl.K_SPACE, sdl.K_UP:
-				playFlap()
-				player.dy = -2.5
-				n := rand.Intn(2) + 2
-				for i := 0; i < n; i++ {
-					x := player.x + float64(rand.Intn(11)-5)
-					y := player.y + float64(rand.Intn(8))
-					feathers = append(feathers, newDroppedFeather(x, y))
-				}
+				jump()
 			case sdl.K_BACKSPACE:
 				conf.invincible = !conf.invincible
 				sdl.Log("Invincibility toggle: %v", conf.invincible)
@@ -334,8 +364,48 @@ func inGame() {
 			case sdl.K_d, sdl.K_a, sdl.K_LEFT, sdl.K_RIGHT:
 				player.dx *= .5
 			}
+		case sdl.ControllerButtonDownEvent:
+			button := sdl.GameControllerButton(ev.Button)
+			switch button {
+			case sdl.CONTROLLER_BUTTON_DPAD_LEFT:
+				player.dx = -2
+			case sdl.CONTROLLER_BUTTON_DPAD_RIGHT:
+				player.dx = 2
+			case sdl.CONTROLLER_BUTTON_DPAD_UP,
+				sdl.CONTROLLER_BUTTON_X,
+				sdl.CONTROLLER_BUTTON_Y,
+				sdl.CONTROLLER_BUTTON_A,
+				sdl.CONTROLLER_BUTTON_B:
+				jump()
+			}
+		case sdl.ControllerButtonUpEvent:
+			button := sdl.GameControllerButton(ev.Button)
+			switch button {
+			case sdl.CONTROLLER_BUTTON_DPAD_LEFT,
+				sdl.CONTROLLER_BUTTON_DPAD_RIGHT:
+				player.dx *= .5
+			}
+		case sdl.ControllerAxisEvent:
+			const threshold = 100
+			switch sdl.GameControllerAxis(ev.Axis) {
+			case sdl.CONTROLLER_AXIS_LEFTX:
+				switch {
+				case ev.Value > -threshold && ev.Value < 0,
+					ev.Value < threshold && ev.Value > 0:
+					player.dx *= .5
+				case ev.Value < -threshold:
+					player.dx = -2
+				case ev.Value > threshold:
+					player.dx = 2
+				}
+			case sdl.CONTROLLER_AXIS_LEFTY:
+				if ev.Value < -threshold {
+					jump()
+				}
+			}
 		}
 	}
+
 	bg.Blit()
 	for _, w := range walls {
 		w.Blit()
