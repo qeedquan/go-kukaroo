@@ -1,0 +1,15 @@
+Help Kukaroo flee his terrible home and escape into the wilderness!
+
+Run 'Kukaroo.py' to start the game. If for whatever reason you don't want music, run 'Kukaroo (no music).py'. Press P to pause at any time. Press Escape to exit the game if it's either too terrible to play or you're just finished for the day.
+
+Use the D and A keys to move Kukaroo around, and the space bar to flap his wings. Each time you touch a dangerous obstacle, you'll go back to the beginning of the area.
+
+Hope you enjoy this (short and moderately challenging, possibly frustrating) game.
+
+HINTS:
+
+Sometimes, just falling is the easiest way to get past obstacles.
+
+Don't be afraid to take it slow.
+
+Watch out for thick ceilings. They may prove fatal.
